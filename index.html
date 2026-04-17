@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>沐沐的週邊✨</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <style>
+        :root { --primary: #6c5ce7; --primary-light: #efeeff; --bg: #f8f9ff; --gray-text: #636e72; --dash-color: #d1d1f0; --deep-gray: #4a4a4a; --cod-color: #ff7675; }
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 12px; padding-bottom: 80px; }
+        
+        /* 防止背景捲動的 class */
+        body.modal-open { overflow: hidden; height: 100vh; }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .header h2 { 
+            margin: 0; color: var(--primary); font-size: 22px; font-weight: 800; 
+            padding: 2px 5px; border-radius: 5px; cursor: pointer;
+            border: 1px solid transparent; transition: 0.3s;
+        }
+        .header h2:hover { background: var(--primary-light); }
+        .header h2:focus { outline: none; background: white; border: 1px solid var(--primary); }
+
+        .settings-icon { font-size: 26px; cursor: pointer; color: #ccc; }
+        
+        .cod-summary-bar { background: var(--primary-light); color: var(--primary); padding: 0 15px; height: 40px; border-radius: 10px; margin-bottom: 12px; display: none; justify-content: space-between; align-items: center; border: 1px solid var(--dash-color); }
+        .cod-label { font-size: 13px; font-weight: 800; }
+        .cod-value { font-size: 15px; font-weight: 900; }
+
+        .search-row { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
+        .search-input { flex: 5; padding: 10px 15px; border-radius: 10px; border: 1px solid #e0e0e0; font-size: 14px; outline: none; box-shadow: 0 2px 5px rgba(0,0,0,0.03); }
+        .sort-btn { flex: 1; height: 40px; background: white; border: 1px solid #e0e0e0; border-radius: 10px; font-size: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.03); color: var(--primary); }
+
+        .card { background: white; padding: 12px; border-radius: 12px; box-shadow: 0 3px 10px rgba(0,0,0,0.06); margin-bottom: 12px; width: 100%; }
+        .order-item { border-left: 5px solid var(--primary); padding: 12px; position: relative; }
+        .order-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .title-text { font-size: 17px; font-weight: 800; color: #333; flex: 1; margin-left: 6px; }
+        
+        .tag { padding: 3px 8px; border-radius: 6px; font-size: 13px; margin-right: 4px; font-weight: 600; color: #444; }
+        .tag-yellow { background: #fff9db; }
+        .tag-pink { background: #ffe3e3; }
+        .tag-blue { background: #e7f5ff; }
+        .tag-green { background: #ebfbee; }
+        .tag-default { background: #f1f2f6; color: #636e72; }
+
+        .time-container { display: flex; flex-wrap: nowrap; gap: 4px; margin-top: 6px; overflow-x: auto; }
+        .time-box { background: #f1f2f6; padding: 3px 6px; border-radius: 6px; font-size: 11.5px; color: #636e72; white-space: nowrap; font-weight: 500; display: inline-flex; align-items: center; }
+        
+        .btn-action-text { color: var(--deep-gray); cursor: pointer; }
+
+        .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--dash-color); }
+        .summary-cell { font-size: 12px; font-weight: 700; color: #444; display: flex; align-items: center; }
+        .align-right { justify-content: flex-end; }
+        .text-purple { color: #6c5ce7; }
+        .text-red { color: #ff7675; }
+
+        input, select { height: 38px; width: 100%; padding: 6px; margin: 3px 0; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 13px; outline: none; }
+        .p-series { background-color: #f1f2f6 !important; }
+        .p-char, .p-type { background-color: #f1f2f6 !important; }
+
+        .row { display: flex; gap: 6px; align-items: flex-end; width: 100%; margin-bottom: 4px; }
+        button { border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .btn-sub { background: var(--primary-light); color: var(--primary); width: 100%; padding: 8px; font-size: 13px; }
+        .btn-main { background: var(--primary); color: white; width: 100%; padding: 12px; border-radius: 12px; font-size: 15px; margin-top: 8px; font-weight: 800; }
+        
+        #toast { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(108, 92, 231, 0.9); color: white; padding: 15px 30px; border-radius: 50px; z-index: 4000; font-weight: 800; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+
+        /* 視窗層級調高，並確保完全遮擋背景 */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 3000; overflow-y: auto; padding: 20px; }
+        .item-input-group { background: #fdfdff; border: 1px dashed var(--dash-color); padding: 10px; border-radius: 10px; margin-bottom: 10px; width: 100%; position: relative; }
+        
+        .btn-del-sub { position: absolute; right: -5px; top: -5px; background: #ff7675; color: white; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; z-index: 10; border: 2px solid white; }
+        .btn-drag-sub { position: absolute; left: -5px; top: -5px; background: #eee; color: #888; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: grab; z-index: 10; border: 2px solid white; user-select: none; }
+
+        .input-wrapper { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        .edit-label { font-size: 10.5px; font-weight: bold; color: #636e72; margin-bottom: 1px; margin-left: 2px; white-space: nowrap; display: flex; align-items: center; }
+        .time-picker-custom { height: 38px !important; padding: 2px 2px !important; font-size: 13px !important; text-align: center; background: #f1f2f6; border: none !important; border-radius: 8px; letter-spacing: -0.5px; appearance: none; color: #636e72; width: 100%; }
+        
+        .tab-container { display: flex; gap: 8px; margin: 10px 0; }
+        .tab { flex: 1; text-align: center; padding: 10px; background: #e9ecef; border-radius: 10px; color: #6c757d; font-size: 13px; font-weight: bold; cursor: pointer; }
+        .tab.active { background: var(--primary); color: white; }
+
+        .empty-tip { text-align: center; padding: 50px 20px; color: #ccc; font-weight: 800; line-height: 1.6; }
+
+        .section-header { font-size: 18px; color: #444; font-weight: 800; margin: 15px 0 10px 0; display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 10px; background: #f8f9ff; border-radius: 10px; }
+        .collapse-content { display: none; padding: 5px; }
+        .setting-input { border: 1px solid #e0e0e0; border-radius: 10px; padding: 10px; margin-bottom: 10px; width: 100%; }
+        .btn-add-opt { flex: 1; background: var(--primary-light); color: var(--primary); padding: 10px 0; font-size: 14px; border-radius: 8px; }
+        .config-card { background: #f1f3f5; border-radius: 10px; padding: 5px 8px; margin-bottom: 6px; } 
+
+        .opt-tag-list { display: flex; flex-wrap: wrap; gap: 2px; min-height: 20px; }
+        .opt-tag { background: white; padding: 2px 6px; border-radius: 5px; font-size: 12px; display: inline-flex; align-items: center; gap: 3px; border: 1px solid #eee; cursor: grab; user-select: none; }
+        .opt-text { cursor: pointer; font-weight: 600; color: #444; line-height: 1.4; }
+        .opt-del { color: #ff7675; font-weight: 800; cursor: pointer; font-size: 14px; padding: 0; }
+        
+        .filter-summary-box { background: #eeefff; border-radius: 15px; padding: 12px; margin-top: 10px; position: relative; min-height: 50px; }
+        .total-amount-label { color: var(--primary); font-size: 12px; font-weight: 800; position: absolute; top: 12px; right: 12px; text-align: right; }
+        .filter-list { font-size: 13px; color: #636e72; margin-top: 35px; }
+        .filter-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dotted #d1d1f0; }
+        .btn-export-all { background: #ffeaa7; color: #d6a312; padding: 15px; width: 100%; border-radius: 12px; font-size: 16px; margin-top: 20px; font-weight: 800; }
+        .expand-btn { text-align: center; color: var(--primary); font-size: 14px; cursor: pointer; padding: 8px; font-weight: 800; }
+    </style>
+</head>
+<body>
+
+<datalist id="list_sellers"></datalist>
+<datalist id="list_series_all"></datalist>
+
+<div id="toast">✅ 儲存成功！</div>
+
+<div class="header">
+    <h2 id="mainTitle" contenteditable="true" spellcheck="false" onblur="saveTitle()" onkeydown="handleTitleKey(event)">📦 沐沐的週邊✨</h2>
+    <span class="settings-icon" onclick="toggleModal('settingsPage', true)">⚙️</span>
+</div>
+
+<div class="card" id="mainInputForm">
+    <div class="row"><select id="sel_platform" style="flex:1.2"></select><input type="text" id="seller" style="flex:1" placeholder="賣家" list="list_sellers"></div>
+    <div class="row"><select id="sel_status" style="flex:1.5" onchange="calcPickup('mainInputForm')">
+        <option>已匯款/未下單</option><option>已匯款/已下單</option>
+        <option>貨到付款/未下單</option><option>貨到付款/已下單</option>
+    </select><input type="text" id="order_note" style="flex:1" placeholder="備註"></div>
+    <div class="row">
+        <input type="number" id="unpaid_fee" style="flex:2" placeholder="未付" oninput="calcPickup('mainInputForm')">
+        <input type="number" id="shipping" style="flex:2" placeholder="運費" oninput="calcPickup('mainInputForm')">
+        <input type="number" id="packing_fee" style="flex:1" placeholder="包手" oninput="calcPickup('mainInputForm')">
+        <input type="number" id="pickup_total" style="flex:1; background:#f9f9f9" placeholder="取貨" readonly>
+    </div>
+    <div class="subContainer" id="mainSubContainer" style="margin-top:10px;"></div>
+    <button class="btn-sub" onclick="addSubItem('mainInputForm')">＋增加項目</button>
+    <button class="btn-main" onclick="handleSave('mainInputForm')">💾 儲存整筆訂單</button>
+</div>
+
+<div class="search-row">
+    <input type="text" id="orderSearch" class="search-input" placeholder="🔍 搜尋訂單內容..." oninput="renderOrders(currentTabArrived)">
+    <div class="sort-btn" onclick="toggleSortOrder()" title="切換時間排序">⏳</div>
+</div>
+
+<div class="tab-container">
+    <div class="tab active" id="tab-unarrived" onclick="switchTab(false)">🎁 未到貨</div>
+    <div class="tab" id="tab-arrived" onclick="switchTab(true)">🧸 已到貨</div>
+</div>
+
+<div id="codSummary" class="cod-summary-bar">
+    <div class="cod-label">📦 取貨待備現金</div>
+    <div class="cod-value" id="codTotalValue">$0</div>
+</div>
+
+<div id="mainList"></div>
+
+<div id="editModal" class="modal">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;"><span onclick="toggleModal('editModal', false)" style="font-size:24px;">✖</span><h3 style="margin:0;">編輯訂單</h3><span onclick="handleSave('editModal')" style="font-size:24px; cursor:pointer;">💾</span></div>
+    <div id="editForm">
+        <div class="row"><select id="edit_platform" style="flex:1.2"></select><input type="text" id="edit_seller" style="flex:1" placeholder="賣家" list="list_sellers"></div>
+        <div class="row"><select id="edit_status" style="flex:1.5" onchange="calcPickup('editModal')">
+            <option>已匯款/未下單</option><option>已匯款/已下單</option>
+            <option>貨到付款/未下單</option><option>貨到付款/已下單</option>
+        </select><input type="text" id="edit_note" style="flex:1" placeholder="備註"></div>
+        <div class="row">
+            <input type="number" id="edit_unpaid" style="flex:2" placeholder="未付" oninput="calcPickup('editModal')">
+            <input type="number" id="edit_shipping" style="flex:2" placeholder="運費" oninput="calcPickup('editModal')">
+            <input type="number" id="edit_packing" style="flex:1" placeholder="包手" oninput="calcPickup('editModal')">
+            <input type="number" id="edit_pickup" style="flex:1; background:#f9f9f9" readonly>
+        </div>
+        <div class="row" style="gap: 8px;">
+            <div class="input-wrapper"><span class="edit-label">🕒 建立時間</span><input type="datetime-local" id="edit_time_picker" class="time-picker-custom"></div>
+            <div class="input-wrapper"><span class="edit-label">✅ 到貨時間</span><input type="datetime-local" id="edit_arrive_picker" class="time-picker-custom"></div>
+        </div>
+        <div class="subContainer" style="margin-top:10px;" id="editSubContainer"></div>
+        <button class="btn-sub" onclick="addSubItem('editModal')">＋增加項目</button>
+    </div>
+</div>
+
+<div id="settingsPage" class="modal">
+    <div style="display:flex; justify-content:space-between; align-items:center;"><h2 style="color:var(--primary); margin:0;">🔧 設定與匯出</h2><span onclick="toggleModal('settingsPage', false)" style="font-size:32px;">✖</span></div>
+    <div class="section-header" onclick="toggleCollapse('optSection', this)"><span>📋 選項管理</span><span>⬇️</span></div>
+    <div id="optSection" class="collapse-content">
+        <input type="text" id="new_opt_val" placeholder="輸入名稱..." class="setting-input">
+        <div class="row">
+            <button class="btn-add-opt" onclick="addOption('platform')">加平台</button>
+            <button class="btn-add-opt" onclick="addOption('series')">加系列</button>
+            <button class="btn-add-opt" onclick="addOption('char')">加人物</button>
+            <button class="btn-add-opt" onclick="addOption('type')">加類別</button>
+        </div>
+        <div id="configDisplay"></div>
+    </div>
+    <div class="section-header" onclick="toggleCollapse('itemTotalSection', this)"><span>🗳️ 項目總表</span><span>⬇️</span></div>
+    <div id="itemTotalSection" class="collapse-content">
+        <div class="row">
+            <select id="it_series" onchange="refreshItemTotal()"><option value="">全部系列</option></select>
+            <select id="it_char" onchange="refreshItemTotal()"><option value="">全部人物</option></select>
+            <select id="it_type" onchange="refreshItemTotal()"><option value="">全部類別</option></select>
+        </div>
+        <div class="filter-summary-box">
+            <div class="total-amount-label" id="it_count_label">總品項數：0</div>
+            <div class="filter-list" id="it_list"></div>
+            <div id="it_expand_btn" class="expand-btn" onclick="toggleShowAllItems('it')" style="display:none;">▼</div>
+        </div>
+    </div>
+    <div class="section-header" onclick="toggleCollapse('summarySection', this)"><span>📊 消費總表</span><span>⬇️</span></div>
+    <div id="summarySection" class="collapse-content">
+        <div class="row">
+            <select id="f_series" onchange="refreshFilter()"><option value="">全部系列</option></select>
+            <select id="f_char" onchange="refreshFilter()"><option value="">全部人物</option></select>
+            <select id="f_type" onchange="refreshFilter()"><option value="">全部類別</option></select>
+        </div>
+        <div class="filter-summary-box">
+            <div class="total-amount-label" id="filter_total_label">商品總額：$0<br>包含雜費：$0</div>
+            <div class="filter-list" id="filter_item_list"></div>
+            <div id="f_expand_btn" class="expand-btn" onclick="toggleShowAllItems('f')" style="display:none;">▼</div>
+        </div>
+    </div>
+    <button class="btn-export-all" onclick="exportToExcel()">📥 匯出所有訂單 (Excel)</button>
+</div>
+
+<script>
+function initTitle() {
+    const savedTitle = localStorage.getItem('MU_APP_TITLE') || '📦 沐沐的週邊✨';
+    document.getElementById('mainTitle').innerText = savedTitle;
+    document.title = savedTitle;
+}
+
+function saveTitle() {
+    const newTitle = document.getElementById('mainTitle').innerText.trim();
+    if(newTitle) {
+        localStorage.setItem('MU_APP_TITLE', newTitle);
+        document.title = newTitle;
+    }
+}
+
+function handleTitleKey(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        e.target.blur();
+    }
+}
+
+let orders = JSON.parse(localStorage.getItem('MU_DATA_V9') || '[]');
+let config = JSON.parse(localStorage.getItem('m_conf_v9') || '{"platform":[],"series":[],"char":[],"type":[]}');
+let editingId = null;
+let currentTabArrived = false;
+let sortDesc = true;
+let showAll_IT = false; 
+let showAll_F = false;
+
+Sortable.create(document.getElementById('editSubContainer'), { handle: '.btn-drag-sub', animation: 150 });
+Sortable.create(document.getElementById('mainSubContainer'), { handle: '.btn-drag-sub', animation: 150 });
+
+function showToast() {
+    const toast = document.getElementById('toast');
+    toast.style.display = 'block';
+    setTimeout(() => { toast.style.display = 'none'; }, 1500);
+}
+
+function updateHistory() {
+    const sellers = new Set();
+    orders.forEach(o => { if(o.seller) sellers.add(o.seller); });
+    document.getElementById('list_sellers').innerHTML = Array.from(sellers).map(s => `<option value="${s}">`).join('');
+}
+
+function getTagClass(status) {
+    if (status.includes('已匯款/未下單')) return 'tag-yellow';
+    if (status.includes('已匯款/已下單')) return 'tag-pink';
+    if (status.includes('貨到付款/未下單')) return 'tag-blue';
+    if (status.includes('貨到付款/已下單')) return 'tag-green';
+    return 'tag-default';
+}
+
+function toggleSortOrder() {
+    sortDesc = !sortDesc;
+    document.querySelector('.sort-btn').innerText = sortDesc ? '⏳' : '⌛';
+    renderOrders(currentTabArrived);
+}
+
+function toggleArrive(id) {
+    const o = orders.find(x => x.id === id);
+    if (!o) return;
+    o.arrived = !o.arrived;
+    o.arriveTime = o.arrived ? new Date().toISOString() : null;
+    saveToLocal();
+    setTimeout(() => { renderOrders(currentTabArrived); }, 300);
+}
+
+function switchTab(ar) {
+    currentTabArrived = ar;
+    document.getElementById('tab-arrived').className = ar ? 'tab active' : 'tab';
+    document.getElementById('tab-unarrived').className = ar ? 'tab' : 'tab active';
+    renderOrders(ar);
+}
+
+function toggleCollapse(id, headerEl) {
+    const content = document.getElementById(id);
+    const arrow = headerEl.querySelector('span:last-child');
+    const isVisible = content.style.display === "block";
+    content.style.display = isVisible ? "none" : "block";
+    arrow.innerText = isVisible ? "⬇️" : "⬆️";
+}
+
+function getFormData(cid) {
+    const isE = cid === 'editModal';
+    const box = document.getElementById(cid);
+    const items = [];
+    let iTotal = 0;
+    let configUpdated = false;
+
+    box.querySelectorAll('.item-input-group').forEach(r => {
+        const p = Number(r.querySelector('.p-price').value) || 0;
+        const q = Number(r.querySelector('.p-qty').value) || 1;
+        const sVal = r.querySelector('.p-series').value.trim();
+        
+        if(sVal && !config.series.includes(sVal)) {
+            config.series.push(sVal);
+            configUpdated = true;
+        }
+
+        items.push({
+            s: sVal,
+            c: r.querySelector('.p-char').value,
+            t: r.querySelector('.p-type').value,
+            n: r.querySelector('.p-name').value.trim(),
+            p, q
+        });
+        iTotal += p * q;
+    });
+
+    if(configUpdated) {
+        localStorage.setItem('m_conf_v9', JSON.stringify(config));
+        updateDropdowns();
+    }
+
+    const unpaid = Number(box.querySelector(isE ? '#edit_unpaid' : '#unpaid_fee').value) || 0;
+    const shipping = Number(box.querySelector(isE ? '#edit_shipping' : '#shipping').value) || 0;
+    const packing = Number(box.querySelector(isE ? '#edit_packing' : '#packing_fee').value) || 0;
+    return {
+        id: isE ? editingId : Date.now() + Math.floor(Math.random()*1000),
+        platform: box.querySelector(isE ? '#edit_platform' : '#sel_platform').value,
+        seller: box.querySelector(isE ? '#edit_seller' : '#seller').value.trim(),
+        status: box.querySelector(isE ? '#edit_status' : '#sel_status').value,
+        note: box.querySelector(isE ? '#edit_note' : '#order_note').value.trim(),
+        unpaid, shipping, packing,
+        pickup: unpaid + shipping + packing,
+        itemTotal: iTotal,
+        items,
+        time: isE ? (box.querySelector('#edit_time_picker').value ? new Date(box.querySelector('#edit_time_picker').value).toISOString() : new Date().toISOString()) : new Date().toISOString(),
+        arrived: isE ? !!box.querySelector('#edit_arrive_picker').value : false,
+        arriveTime: isE && box.querySelector('#edit_arrive_picker').value ? new Date(box.querySelector('#edit_arrive_picker').value).toISOString() : null
+    };
+}
+
+function handleSave(cid) {
+    const orderData = getFormData(cid);
+    if(cid === 'editModal') {
+        const idx = orders.findIndex(o => o.id === editingId);
+        if(idx > -1) orders[idx] = orderData;
+        toggleModal('editModal', false);
+    } else {
+        orders.unshift(orderData);
+        document.getElementById('seller').value = '';
+        document.getElementById('order_note').value = '';
+        document.getElementById('unpaid_fee').value = '';
+        document.getElementById('shipping').value = '';
+        document.getElementById('packing_fee').value = '';
+        document.getElementById('pickup_total').value = '';
+        document.querySelector('#mainInputForm .subContainer').innerHTML = '';
+        addSubItem('mainInputForm');
+        updateDropdowns();
+    }
+    saveToLocal(); updateHistory(); showToast(); renderOrders(currentTabArrived);
+}
+
+function renderOrders(isArrived = false) {
+    const searchKeyword = document.getElementById('orderSearch').value.toLowerCase();
+    let cashSum = 0; 
+
+    let filtered = orders.filter(o => {
+        if (!o.arrived && (o.pickup || 0) > 0) {
+            cashSum += (o.pickup || 0);
+        }
+        
+        if (o.arrived !== isArrived) return false;
+        if (!searchKeyword) return true;
+        const sMatch = o.seller.toLowerCase().includes(searchKeyword);
+        const nMatch = o.note.toLowerCase().includes(searchKeyword);
+        const pMatch = o.platform.toLowerCase().includes(searchKeyword);
+        const iMatch = o.items.some(i => i.s.toLowerCase().includes(searchKeyword) || i.c.toLowerCase().includes(searchKeyword) || i.t.toLowerCase().includes(searchKeyword) || i.n.toLowerCase().includes(searchKeyword));
+        return sMatch || nMatch || pMatch || iMatch;
+    });
+
+    const codBar = document.getElementById('codSummary');
+    if (!isArrived && cashSum > 0) {
+        codBar.style.display = 'flex';
+        document.getElementById('codTotalValue').innerText = `$${cashSum}`;
+    } else {
+        codBar.style.display = 'none';
+    }
+
+    filtered.sort((a, b) => {
+        const tA = new Date(a.time).getTime();
+        const tB = new Date(b.time).getTime();
+        return sortDesc ? tB - tA : tA - tB;
+    });
+
+    const listEl = document.getElementById('mainList');
+    if (filtered.length === 0) { listEl.innerHTML = `<div class="empty-tip">沒找到相關訂單...</div>`; return; }
+    listEl.innerHTML = filtered.map(o => {
+        const formatT = (d) => { if(!d) return ''; const dt = new Date(d); return `${dt.getFullYear()}/${dt.getMonth()+1}/${dt.getDate()} ${dt.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:true})}`; };
+        const totalSum = (o.itemTotal - o.unpaid) + o.pickup;
+        return `<div class="card order-item">
+            <div class="order-header">
+                <input type="checkbox" style="width:20px;height:20px;accent-color:var(--primary);" ${o.arrived?'checked':''} onclick="toggleArrive(${o.id})">
+                <div class="title-text">${o.platform} - ${o.seller}</div>
+                <div style="font-size:13px;"><span class="btn-action-text" onclick="editOrder(${o.id})">編輯</span> | <span class="btn-action-text" onclick="del(${o.id})">刪除</span></div>
+            </div>
+            <div style="margin-bottom:4px;"><span class="tag ${getTagClass(o.status)}">${o.status}</span><span class="tag tag-default">備註：${o.note || '無'}</span></div>
+            <div class="time-container"><div class="time-box">🕒 ${formatT(o.time)}</div>${o.arrived ? `<div class="time-box">🧸 ${formatT(o.arriveTime)}</div>` : ''}</div>
+            <div style="border-bottom:1px dashed var(--dash-color); margin:10px 0;"></div>
+            <div>${o.items.map(i=>`<div style="font-size:14px;font-weight:600;margin-bottom:6px;">📦［${i.s}］${i.c}-${i.t}（${i.n||'買單'}）$${i.p}*${i.q}</div>`).join('')}</div>
+            <div class="summary-grid">
+                <div class="summary-cell">💰 商品總額：$${o.itemTotal}</div>
+                <div class="summary-cell align-right text-purple">🛒 取貨額：$${o.pickup}</div>
+                <div class="summary-cell">💸 雜費：${o.unpaid}/${o.shipping}/${o.packing}</div>
+                <div class="summary-cell align-right text-red">🔥 全部總計：$${totalSum}</div>
+            </div>
+        </div>`}).join('');
+}
+
+function calcPickup(cid) { 
+    const box = document.getElementById(cid);
+    const isE = cid === 'editModal';
+    const status = box.querySelector(isE ? '#edit_status' : '#sel_status').value;
+    
+    let itemSum = 0;
+    box.querySelectorAll('.item-input-group').forEach(r => {
+        const p = Number(r.querySelector('.p-price').value) || 0;
+        const q = Number(r.querySelector('.p-qty').value) || 1;
+        itemSum += p * q;
+    });
+
+    const unpaidInput = box.querySelector(isE ? '#edit_unpaid' : '#unpaid_fee');
+    
+    if (status.includes('貨到付款')) {
+        unpaidInput.value = itemSum;
+    }
+
+    const u = Number(unpaidInput.value) || 0;
+    const s = Number(box.querySelector(isE ? '#edit_shipping' : '#shipping').value) || 0;
+    const p = Number(box.querySelector(isE ? '#edit_packing' : '#packing_fee').value) || 0;
+    box.querySelector(isE ? '#edit_pickup' : '#pickup_total').value = u + s + p;
+}
+
+function editOrder(id) { 
+    const o = orders.find(x => x.id === id); if(!o) return;
+    editingId = id; 
+    updateDropdowns(); 
+    toggleModal('editModal', true); 
+    document.getElementById('edit_platform').value = o.platform; 
+    document.getElementById('edit_seller').value = o.seller; 
+    document.getElementById('edit_status').value = o.status; 
+    document.getElementById('edit_note').value = o.note || ''; 
+    document.getElementById('edit_unpaid').value = o.unpaid || 0; 
+    document.getElementById('edit_shipping').value = o.shipping || 0; 
+    document.getElementById('edit_packing').value = o.packing || 0; 
+    document.getElementById('edit_pickup').value = o.pickup || 0; 
+    document.getElementById('edit_time_picker').value = formatToPicker(o.time);
+    document.getElementById('edit_arrive_picker').value = o.arriveTime ? formatToPicker(o.arriveTime) : '';
+    const sc = document.querySelector('#editModal .subContainer'); 
+    sc.innerHTML = ''; o.items.forEach(i => addSubItem('editModal', i)); 
+}
+
+function saveToLocal() { localStorage.setItem('MU_DATA_V9', JSON.stringify(orders)); }
+
+// 修改 Modal 切換邏輯，鎖定背景捲動
+function toggleModal(id, show) { 
+    document.getElementById(id).style.display = show ? 'block' : 'none'; 
+    if (show) {
+        document.body.classList.add('modal-open');
+    } else {
+        document.body.classList.remove('modal-open');
+    }
+}
+
+function formatToPicker(iso) { if(!iso) return ""; const d = new Date(iso); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + 'T' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); }
+function del(id) { if(confirm('確定刪除整筆訂單？')) { orders = orders.filter(x => x.id !== id); saveToLocal(); updateHistory(); renderOrders(currentTabArrived); } }
+
+function addSubItem(cid, data=null, anchorEl=null) {
+    const sc = document.querySelector(`#${cid} .subContainer`);
+    const div = document.createElement('div'); div.className = 'item-input-group';
+    div.innerHTML = `<div class="btn-drag-sub" onclick="copySubItem(this, '${cid}')">⠿</div>
+        <div class="btn-del-sub" onclick="removeSubItem(this, '${cid}')">➖</div>
+        <div class="row"><input type="text" class="p-series" placeholder="系列" list="list_series_all"><select class="p-char"></select><select class="p-type"></select></div>
+        <div class="row" style="margin-top:5px;"><input type="text" class="p-name" placeholder="名稱" style="flex:3" value="${data?.n||''}"><input type="number" class="p-price" placeholder="單價" style="flex:1" value="${data?.p||''}" oninput="calcPickup('${cid}')"><input type="number" class="p-qty" style="flex:1" value="${data?.q||1}" oninput="calcPickup('${cid}')"></div>`;
+    
+    if(anchorEl) { anchorEl.insertAdjacentElement('afterend', div); } 
+    else { sc.appendChild(div); }
+
+    const setOpt = (el, k) => { el.innerHTML = `<option value="">${k}</option>` + config[k==='人物'?'char':'type'].map(x=>`<option value="${x}">${x}</option>`).join(''); };
+    setOpt(div.querySelector('.p-char'), '人物'); setOpt(div.querySelector('.p-type'), '類別');
+    if(data) { div.querySelector('.p-series').value=data.s; div.querySelector('.p-char').value=data.c; div.querySelector('.p-type').value=data.t; }
+    checkDelBtn(cid);
+    calcPickup(cid);
+}
+
+function copySubItem(btn, cid) {
+    const parent = btn.parentElement;
+    const data = {
+        s: parent.querySelector('.p-series').value,
+        c: parent.querySelector('.p-char').value,
+        t: parent.querySelector('.p-type').value,
+        n: parent.querySelector('.p-name').value,
+        p: parent.querySelector('.p-price').value,
+        q: parent.querySelector('.p-qty').value
+    };
+    addSubItem(cid, data, parent);
+}
+
+function removeSubItem(btn, cid) {
+    const sc = document.querySelector(`#${cid} .subContainer`);
+    if(sc.querySelectorAll('.item-input-group').length > 1) {
+        btn.parentElement.remove();
+        checkDelBtn(cid);
+        calcPickup(cid);
+    }
+}
+
+function checkDelBtn(cid) {
+    const sc = document.querySelector(`#${cid} .subContainer`);
+    const btns = sc.querySelectorAll('.btn-del-sub');
+    btns.forEach(b => b.style.display = btns.length === 1 ? 'none' : 'flex');
+}
+
+function updateDropdowns() {
+    const mainPlatform = document.getElementById('sel_platform').value;
+    const opt = (arr, h) => `<option value="">${h}</option>` + arr.map(x=>`<option value="${x}">${x}</option>`).join('');
+    ['sel_platform', 'edit_platform', 'f_series', 'f_char', 'f_type', 'it_series', 'it_char', 'it_type'].forEach(id => {
+        const el = document.getElementById(id); if(!el) return;
+        if(id.includes('platform')) el.innerHTML = opt(config.platform, '選擇平台');
+        else if(id.includes('series')) el.innerHTML = opt(config.series, '全部系列');
+        else if(id.includes('char')) el.innerHTML = opt(config.char, '全部人物');
+        else if(id.includes('type')) el.innerHTML = opt(config.type, '全部類別');
+    });
+    if(mainPlatform) document.getElementById('sel_platform').value = mainPlatform;
+    document.getElementById('list_series_all').innerHTML = config.series.map(s => `<option value="${s}">`).join('');
+    renderConfig(); refreshFilter(); refreshItemTotal();
+}
+
+function addOption(key) {
+    const v = document.getElementById('new_opt_val').value.trim();
+    if (v) { config[key].push(v); localStorage.setItem('m_conf_v9', JSON.stringify(config)); document.getElementById('new_opt_val').value = ''; updateDropdowns(); }
+}
+
+function editOptName(key, index) {
+    const oldVal = config[key][index];
+    const newVal = prompt(`修改「${oldVal}」的名稱（同步更新所有舊訂單）：`, oldVal);
+    if (newVal && newVal.trim() !== "" && newVal !== oldVal) {
+        const newer = newVal.trim();
+        config[key][index] = newer;
+        localStorage.setItem('m_conf_v9', JSON.stringify(config));
+        orders.forEach(o => {
+            if (key === 'platform' && o.platform === oldVal) o.platform = newer;
+            o.items.forEach(i => {
+                if (key === 'series' && i.s === oldVal) i.s = newer;
+                if (key === 'char' && i.c === oldVal) i.c = newer;
+                if (key === 'type' && i.t === oldVal) i.t = newer;
+            });
+        });
+        saveToLocal(); updateDropdowns(); renderOrders(currentTabArrived);
+    }
+}
+
+function delOpt(k, i) { if(confirm('刪除選項？')) { config[k].splice(i, 1); localStorage.setItem('m_conf_v9', JSON.stringify(config)); updateDropdowns(); } }
+
+function renderConfig() {
+    const c = document.getElementById('configDisplay');
+    c.innerHTML = Object.keys(config).map(k => `
+        <div class="config-card">
+            <div style="font-weight:800;font-size:14px;margin-bottom:6px;">${k==='platform'?'平台':k==='series'?'系列':k==='char'?'人物':'類別'}：</div>
+            <div class="opt-tag-list" data-key="${k}">
+                ${config[k].map((v, i) => `
+                    <div class="opt-tag" data-index="${i}">
+                        <span class="opt-text" onclick="editOptName('${k}', ${i})">${v}</span>
+                        <span class="opt-del" onclick="delOpt('${k}',${i})">×</span>
+                    </div>`).join('')}
+            </div>
+        </div>`).join('');
+    document.querySelectorAll('.opt-tag-list').forEach(el => {
+        Sortable.create(el, {
+            animation: 150, delay: 300, delayOnTouchOnly: true, ghostClass: 'sortable-ghost',
+            onEnd: function (evt) {
+                const key = el.getAttribute('data-key');
+                const list = config[key];
+                const [movedItem] = list.splice(evt.oldIndex, 1);
+                list.splice(evt.newIndex, 0, movedItem);
+                localStorage.setItem('m_conf_v9', JSON.stringify(config));
+                updateDropdowns(); 
+            }
+        });
+    });
+}
+
+function refreshItemTotal() {
+    const s = document.getElementById('it_series').value;
+    const c = document.getElementById('it_char').value;
+    const t = document.getElementById('it_type').value;
+    const stats = {}; 
+    orders.forEach(o => o.items.forEach(i => {
+        if((!s || i.s === s) && (!c || i.c === c) && (!t || i.t === t)) {
+            const key = `${i.s}|${i.c}|${i.t}|${(i.n||'').trim()}`;
+            if(!stats[key]) stats[key] = { ...i, totalQ: 0 };
+            stats[key].totalQ += (Number(i.q) || 0);
+        }
+    }));
+    let html = ''; let count = 0;
+    const entries = Object.values(stats);
+    const totalItems = entries.length;
+    const displayEntries = showAll_IT ? entries : entries.slice(0, 15);
+    displayEntries.forEach(v => {
+        count += v.totalQ;
+        html += `<div class="filter-item"><span>[${v.s}] ${v.c}/${v.t} (${v.n})</span><span>x${v.totalQ}</span></div>`;
+    });
+    document.getElementById('it_count_label').innerText = `總品項數：${count}`;
+    document.getElementById('it_list').innerHTML = html || '<div style="text-align:center;padding:10px;">尚無項目資料</div>';
+    const btn = document.getElementById('it_expand_btn');
+    if (totalItems > 15) {
+        btn.style.display = 'block';
+        btn.innerText = showAll_IT ? '▲ 隱藏部分' : `▼ 顯示更多 (還有 ${totalItems - 15} 項)`;
+    } else { btn.style.display = 'none'; }
+}
+
+function refreshFilter() {
+    const s = document.getElementById('f_series').value;
+    const c = document.getElementById('f_char').value;
+    const t = document.getElementById('f_type').value;
+    let itemSum = 0; let realSpendSum = 0; 
+    let items = [];
+    orders.forEach(o => {
+        let matchedInOrder = false;
+        o.items.forEach(i => {
+            if((!s || i.s === s) && (!c || i.c === c) && (!t || i.t === t)) {
+                itemSum += (Number(i.p) || 0) * (Number(i.q) || 0);
+                items.push(i);
+                matchedInOrder = true;
+            }
+        });
+        if(matchedInOrder) realSpendSum += (o.itemTotal - o.unpaid) + o.pickup;
+    });
+    const totalItems = items.length;
+    const displayItems = showAll_F ? items : items.slice(0, 15);
+    let html = displayItems.map(i => `<div class="filter-item"><span>[${i.s}] ${i.c}/${i.t} - ${i.n}</span><span>x${i.q} ($${i.p})</span></div>`).join('');
+    document.getElementById('filter_total_label').innerHTML = `商品總額：$${itemSum}<br>包含雜費：$${realSpendSum}`;
+    document.getElementById('filter_item_list').innerHTML = html || '<div style="text-align:center;padding:10px;">查與相符項目</div>';
+    const btn = document.getElementById('f_expand_btn');
+    if (totalItems > 15) {
+        btn.style.display = 'block';
+        btn.innerText = showAll_F ? '▲ 隱藏部分' : `▼ 顯示更多 (還有 ${totalItems - 15} 項)`;
+    } else { btn.style.display = 'none'; }
+}
+
+function toggleShowAllItems(type) {
+    if(type === 'it') { showAll_IT = !showAll_IT; refreshItemTotal(); }
+    else { showAll_F = !showAll_F; refreshFilter(); }
+}
+
+function exportToExcel() {
+    if(orders.length === 0) return alert('沒有訂單！');
+    const data = [];
+    orders.forEach(o => o.items.forEach(i => {
+        data.push({ "日期": new Date(o.time).toLocaleDateString(), "平台": o.platform, "賣家": o.seller, "系列": i.s, "人物": i.c, "類別": i.t, "名稱": i.n, "單價": i.p, "數量": i.q, "狀態": o.status });
+    }));
+    const ws = XLSX.utils.json_to_sheet(data); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Orders");
+    XLSX.writeFile(wb, `沐沐備份_${new Date().toLocaleDateString()}.xlsx`);
+}
+
+initTitle();
+updateDropdowns(); updateHistory(); addSubItem('mainInputForm'); renderOrders(false);
+</script>
+</body>
+</html>
